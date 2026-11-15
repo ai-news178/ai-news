@@ -1,0 +1,27 @@
+name: AI digest
+
+on:
+  schedule:
+    - cron: "47 15 * * *"   # каждый день в 18:47 по Москве (15:47 UTC)
+  workflow_dispatch:         # кнопка ручного запуска
+
+permissions:
+  contents: read
+
+jobs:
+  digest:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Дайджест дня
+        env:
+          BOT_TOKEN: ${{ secrets.BOT_TOKEN }}
+          CHANNEL_ID: ${{ secrets.CHANNEL_ID }}
+          OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
+        run: python digest.py
