@@ -1,6 +1,7 @@
 # AI Creator News - публикация новостей в Telegram-канал через GitHub Actions.
 # Скрипт запускается по расписанию, отправляет новые статьи и завершается.
 # Токен и канал берутся из секретов репозитория (BOT_TOKEN, CHANNEL_ID).
+# Англоязычные новости автоматически переводятся на русский.
 
 import html
 import json
@@ -111,14 +112,40 @@ def matches(it):
     return any(k in hay for k in KW)
 
 
+CYR_RE = re.compile(r"[а-яё]", re.I)
+
+
+def is_russian(text):
+    letters = [c for c in text if c.isalpha()]
+    return bool(letters) and sum(1 for c in letters if CYR_RE.match(c)) / len(letters) > 0.4
+
+
+def translate(text):
+    """Перевод на русский через бесплатный Google Translate. При ошибке - оригинал."""
+    if not text or is_russian(text):
+        return text
+    url = ("https://translate.googleapis.com/translate_a/single?client=gtx&sl=auto&tl=ru&dt=t&q="
+           + urllib.parse.quote(text[:1500]))
+    try:
+        with urllib.request.urlopen(urllib.request.Request(url, headers=UA), timeout=20) as r:
+            data = json.loads(r.read().decode("utf-8"))
+        result = "".join(part[0] for part in data[0] if part and part[0])
+        return result.strip() or text
+    except Exception as e:
+        print("Перевод не удался:", e)
+        return text
+
+
 def fmt(it):
     s = it["summary"]
     if len(s) > SUMMARY_LEN:
         s = s[:SUMMARY_LEN].rsplit(" ", 1)[0] + "…"
-    parts = [f"<b>{html.escape(it['title'])}</b>", f"<i>{html.escape(it['source'])}</i>"]
+    title = translate(it["title"])
+    s = translate(s)
+    parts = [f"<b>{html.escape(title)}</b>", f"<i>{html.escape(it['source'])}</i>"]
     if s:
         parts.append(html.escape(s))
-    parts.append(f'<a href="{html.escape(it["link"], quote=True)}">Читать →</a>')
+    parts.append(f'<a href="{html.escape(it["link"], quote=True)}">Читать оригинал →</a>')
     return "\n\n".join(parts)
 
 
